@@ -17,11 +17,11 @@ def home():
     if 'token' in session.keys():
         employees = get_employee(session['token'])
         labels, bar_datasets = build_position_chart_data(employees)
-        print(labels)
+        column_names, column_values = build_datatable_source(employees)
         birthdays = birthday_coming_up(employees, 30)
         employee_count = len(employees)  # temporary - need to make more robust
         return render_template('stats.html', labels=labels,  bar_datasets=bar_datasets, birthdays=birthdays,
-                               employee_count=employee_count)
+                               employee_count=employee_count, column_names=column_names, column_values=column_values)
     else:
         return redirect(url_for('login'))
 
@@ -148,6 +148,7 @@ def get_employee(token, race=None, position=None, start_date=None, user=None, ge
     return response.json()
 
 
+# the data coming from the server is incorrect, will have to change this to do a proper date calcuation
 def birthday_coming_up(employees, days):
     birthdays = []
     for employee in employees:
@@ -190,6 +191,19 @@ def build_position_chart_data(employees):
     # return str(datasets).replace("'data'", 'data').replace("'label'", 'label')
     return json.dumps(labels), json.dumps(datasets)
 
+
+def build_datatable_source(employees):
+    table_variables = ['user.first_name', 'user.last_name', 'position.name',
+                       'gender', 'birth_date', 'email', 'phone_number', 'years_worked']
+    column_names = []
+    column_values = []
+    for column in table_variables:
+        if "." in column:
+            column = column.split('.')[1]
+        column_names.append({'title': column.capitalize().replace('_', ' ')})
+    employee_df = json_normalize(employees)
+    column_values = employee_df[table_variables].values.tolist()
+    return json.dumps(column_names), json.dumps(column_values)
 
 
 
