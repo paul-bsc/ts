@@ -1,6 +1,8 @@
 # import the Flask class from the flask module
 from flask import Flask, render_template, url_for, request, redirect, session
 import requests
+from pandas.io.json import json_normalize
+import pandas as pd
 
 # create the application object
 app = Flask(__name__)
@@ -141,6 +143,20 @@ def birthday_coming_up(employees, days):
     for employee in employees:
         if employee['days_to_birthday'] - days <= 0:
             birthdays_coming_up.append(employee['user']['id'])
+
+
+@app.route("/chart")
+def chart():
+    employees = get_employee(session['token'])
+    data = build_position_chart_data(employees)
+    labels = list(data.keys())
+    values = list(data)
+    return render_template('chart.html', values=values, labels=labels, max=max(values))
+
+
+def build_position_chart_data(employees):
+    employee_df = json_normalize(employees)
+    return employee_df.groupby('position.name')['position.level'].count()
 
 
 # start the server with the 'run()' method
