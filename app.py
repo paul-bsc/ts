@@ -13,7 +13,14 @@ app = Flask(__name__)
 def home():
     error = None
     if 'token' in session.keys():
-        return "Place holder"  # return a string
+        employees = get_employee(session['token'])
+        data = build_position_chart_data(employees)
+        labels = list(data.keys())
+        values = list(data)
+        birthdays = birthday_coming_up(employees, 30)
+        employee_count = len(employees)  # temporary - need to make more robust
+        return render_template('stats.html', values=values, labels=labels, birthdays=birthdays,
+                               employee_count=employee_count)
     else:
         return redirect(url_for('login'))
 
@@ -139,19 +146,25 @@ def get_employee(token, race=None, position=None, start_date=None, user=None, ge
 
 
 def birthday_coming_up(employees, days):
-    birthdays_coming_up = []
+    birthdays = []
     for employee in employees:
-        if employee['days_to_birthday'] - days <= 0:
-            birthdays_coming_up.append(employee['user']['id'])
+        if employee['days_to_birthday'] < 30:
+            birthdays.append([
+                "{} {}".format(employee['user']['first_name'], employee['user']['last_name']),
+                employee['birth_date'],
+                employee['age']])
+    return birthdays
 
 
-@app.route("/chart")
+@app.route("/stats")
 def chart():
     employees = get_employee(session['token'])
     data = build_position_chart_data(employees)
     labels = list(data.keys())
     values = list(data)
-    return render_template('chart.html', values=values, labels=labels, max=max(values))
+    birthdays = birthday_coming_up(employees, 30)
+    employee_count = len(employees) # temporary - need to make more robust
+    return render_template('stats.html', values=values, labels=labels, birthdays=birthdays, employee_count=employee_count)
 
 
 def build_position_chart_data(employees):
