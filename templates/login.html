@@ -15,12 +15,13 @@
   }
 
   .container{
-    position: absolute;
+      position: absolute;
       width: 300px;
-      height: 300px;
+      height: 350px;
       z-index: 15;
-      top: 30%;
+      top: 35%;
       left: 50%;
+      border-radius: 5%;
       margin: -100px 0 0 -150px;
       background-color:rgba(255, 255, 255, 0.9);
   }
@@ -33,10 +34,10 @@
       <h1>Welcome</h1>
       <br>
       <form action="" method="post">
-        <input type="text" placeholder="Username" name="username" value="{{
+        <input type="text" placeholder="Username" name="username" class="form-control" value="{{
           request.form.username }}"><br>
-         <input type="password" placeholder="Password" name="password" value="{{
-          request.form.password }}"><br><br>
+         <input type="password" placeholder="Password" name="password" class="form-control" value="{{
+          request.form.password }}"><br>
         <input class="btn btn-default login-btn" type="submit" value="Login">
       </form>
       {% if error %}

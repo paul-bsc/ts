@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 # import the Flask class from the flask module
-from flask import Flask, render_template, url_for, request, redirect, session
+from flask import Flask, render_template, url_for, request, redirect, session, jsonify
 import requests
 from pandas.io.json import json_normalize
 import pandas as pd
+import json
 
 # create the application object
 app = Flask(__name__)
@@ -14,20 +16,14 @@ def home():
     error = None
     if 'token' in session.keys():
         employees = get_employee(session['token'])
-        data = build_position_chart_data(employees)
-        labels = list(data.keys())
-        values = list(data)
+        labels, bar_datasets = build_position_chart_data(employees)
+        print(labels)
         birthdays = birthday_coming_up(employees, 30)
         employee_count = len(employees)  # temporary - need to make more robust
-        return render_template('stats.html', values=values, labels=labels, birthdays=birthdays,
+        return render_template('stats.html', labels=labels,  bar_datasets=bar_datasets, birthdays=birthdays,
                                employee_count=employee_count)
     else:
         return redirect(url_for('login'))
-
-
-@app.route('/welcome')
-def welcome():
-    return render_template('welcome.html')  # render a template
 
 
 # Route for handling the login page logic
@@ -47,6 +43,7 @@ def login():
             session['username'] = username
             session['password'] = password
             session['token'] = response
+            print(session.keys())
             return redirect(url_for('home'))
         else:
             error = response
@@ -88,15 +85,21 @@ def get_token(username, password):
         'cache-control': "no-cache"
     }
 
-    response = requests.request("POST", url, data=payload, headers=headers).json()
-    # print(response)
-
-    if 'token' in response.keys():
-        return True, response['token']
-    elif 'non_field_errors' in response.keys():
-        return False, response['non_field_errors']
-    else:
-        return False, None
+    try:
+        response = requests.request("POST", url, data=payload, headers=headers).json()
+        print(response)
+        if 'token' in response.keys():
+            return True, response['token']
+        elif 'non_field_errors' in response.keys():
+            return False, response['non_field_errors'][0]
+        else:
+            return False, None
+    except requests.exceptions.Timeout:
+        return False, "Request Timeout. Please try again."
+    except requests.exceptions.TooManyRedirects:
+        return False, "Too Many Redirects. Please try again."
+    except requests.exceptions.RequestException as e:
+        return False, "Error. Please try again."
 
 
 def get_user(token):
@@ -159,7 +162,7 @@ def birthday_coming_up(employees, days):
 @app.route("/stats")
 def chart():
     employees = get_employee(session['token'])
-    data = build_position_chart_data(employees)
+    labels, data = build_position_chart_data(employees)
     labels = list(data.keys())
     values = list(data)
     birthdays = birthday_coming_up(employees, 30)
@@ -168,8 +171,26 @@ def chart():
 
 
 def build_position_chart_data(employees):
+    colors = ['#29746F', '#F16767']
+    level_subsets = {}
     employee_df = json_normalize(employees)
-    return employee_df.groupby('position.name')['position.level'].count()
+    labels = list(employee_df['position.name'].unique())
+    levels = employee_df['position.level'].unique()
+    for level in levels:
+        level_subsets[level] = dict(employee_df[employee_df['position.level'] == level].groupby(['position.name'])['position.name'].count())
+    normalised = pd.DataFrame.from_dict(level_subsets).fillna(0)
+    datasets = []
+    for level in levels:
+        datasets.append({'label': level,
+                         'data': list(normalised[level]),
+                         'stack': 'Stack 0',
+                         'backgroundColor': colors[list(levels).index(level)]
+                         })
+    # temp response - need to come clean this up and make it more robust
+    # return str(datasets).replace("'data'", 'data').replace("'label'", 'label')
+    return json.dumps(labels), json.dumps(datasets)
+
+
 
 
 # start the server with the 'run()' method

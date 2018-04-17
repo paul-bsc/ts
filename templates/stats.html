@@ -65,15 +65,52 @@
         .span_3_of_3, .span_2_of_3, .span_1_of_3 { width: 100%; }
     }
 
+	/* The Modal (background) */
+	.modal {
+		display: none; /* Hidden by default */
+		position: fixed; /* Stay in place */
+		z-index: 1; /* Sit on top */
+		left: 0;
+		top: 0;
+		width: 100%; /* Full width */
+		height: 100%; /* Full height */
+		overflow: auto; /* Enable scroll if needed */
+		background-color: rgb(0,0,0); /* Fallback color */
+		background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+	}
+
+	/* Modal Content/Box */
+	.modal-content {
+		background-color: #fefefe;
+		margin: 15% auto; /* 15% from the top and centered */
+		padding: 20px;
+		border: 1px solid #888;
+		width: 80%; /* Could be more or less, depending on screen size */
+	}
+
+	/* The Close Button */
+	.close {
+		color: #aaa;
+		float: right;
+		font-size: 28px;
+		font-weight: bold;
+	}
+
+	.close:hover,
+	.close:focus {
+		color: black;
+		text-decoration: none;
+		cursor: pointer;
+	}
     </style>
     <script src='static/Chart.min.js'></script>
 </head>
 <body>
 
 <div class="topnav">
-    <a href="#logout">Log Out</a>
-    <a href="#user">User</a>
-  <a class="active" href="#stats">Statistics Panel</a>
+    <a href="#logout" id="logout_button">Log Out</a>
+    <a href="#user" id="user_button">User</a>
+  <a class="active" href="#stats" id="stats_button">Statistics Panel</a>
 </div>
 
 <div class="section group">
@@ -100,39 +137,38 @@
 	This is  6
 	</div>
 </div>
+<div id="user_profile" class="modal">
+	  <!-- Modal content -->
+<div class="modal-content">
+<span class="close">&times;</span>
+<p>Some text in the Modal..</p>
+</div>
+</div>
 
 <script>
-   // bar chart data
-   var barData = {
-   labels : [{% for item in labels %}
-                  "{{item}}",
-              {% endfor %}],
-   datasets : [
-      {
-         data : [{% for item in values %}
-                      {{item}},
-                    {% endfor %}],
-         backgroundColor: "rgba(151,187,205,0.2)",
-         borderColor: "rgba(151,187,205,1)",
-         hoverBorderColor: "rgba(151,187,205,1)",
-      }
-      ]
-   }
+
+	//get data
+	bar_data =JSON.parse({{bar_datasets |tojson}});
+	label_data = JSON.parse({{labels |tojson}});
 
    // get bar chart canvas
    var ctx = document.getElementById("chart").getContext("2d");
    //draw
    var bar = new Chart(ctx, {
     type: 'horizontalBar',
-    data: barData,
+    data: {
+    		labels: label_data,
+    		datasets: bar_data
+    	},
     options: {
         responsive: true,
         legend: {
-            display: false
+            display: true
          },
         scales: {
         xAxes: [{
             display: true,
+            stacked: true,
             ticks: {
                 beginAtZero: true,
                 stepSize: 1
@@ -142,6 +178,31 @@
     }
    });
 
+	// Get the modal
+	var modal = document.getElementById('user_profile');
+
+	// Get the button that opens the modal
+	var btn = document.getElementById("user_button");
+
+	// Get the <span> element that closes the modal
+	var span = document.getElementsByClassName("close")[0];
+
+	// When the user clicks on the button, open the modal
+	btn.onclick = function() {
+		modal.style.display = "block";
+	}
+
+	// When the user clicks on <span> (x), close the modal
+	span.onclick = function() {
+		modal.style.display = "none";
+	}
+
+	// When the user clicks anywhere outside of the modal, close it
+	window.onclick = function(event) {
+		if (event.target == modal) {
+			modal.style.display = "none";
+		}
+	}
 
 </script>
 </body>
