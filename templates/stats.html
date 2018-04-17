@@ -113,6 +113,7 @@
 	    max-height: 100px;
         padding-left: 20px;
         padding-right: 20px;
+        zoom: 0.99;
 	}
 
     </style>
@@ -126,21 +127,23 @@
 
 <div class="topnav">
     <a href="#logout" id="logout_button">Log Out</a>
-    <a href="#user" id="user_button">User</a>
+    <a href="#user" id="user_button">Me</a>
+	<a href="#search" id="search_button">Search</a>
   <a class="active" href="#stats" id="stats_button">Statistics Panel</a>
 </div>
 
 <div class="section group">
 	<div class="col span_1_of_3">
-        <h1>Employees</h1>
+        <h2>Employees</h2>
         <h1>{{employee_count}}</h1>
 	</div>
 	<div class="col span_1_of_3">
-        <h1>Developers</h1>
+        <h2>Developers</h2>
 	    <canvas id="chart"></canvas>
 	</div>
 	<div class="col span_1_of_3">
-	<h1>{{birthdays}}</h1>
+		<h2>Birthdays</h2>
+		<h1>{{birthdays}}</h1>
 	</div>
 </div>
 <div class="table_container">
@@ -151,7 +154,18 @@
 	  <!-- Modal content -->
 <div class="modal-content">
 <span class="close">&times;</span>
-<p>Some text in the Modal..</p>
+<div class="section group">
+	<div class="col span_1_of_3">
+        <h2>Employee Info</h2>
+
+	</div>
+	<div class="col span_1_of_3">
+        <h2>Next of Kin</h2>
+	</div>
+	<div class="col span_1_of_3">
+	<h2>Reviews</h2>
+	</div>
+</div>
 </div>
 </div>
 

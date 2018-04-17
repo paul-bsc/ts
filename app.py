@@ -125,7 +125,7 @@ def get_user_full(token):
 
     response = requests.request("GET", url, headers=headers)
 
-    return response.json()[0]
+    return response.json()
 
 
 def get_employee(token, race=None, position=None, start_date=None, user=None, gender=None, birth_date=None, email=None):
@@ -204,6 +204,17 @@ def build_datatable_source(employees):
     employee_df = json_normalize(employees)
     column_values = employee_df[table_variables].values.tolist()
     return json.dumps(column_names), json.dumps(column_values)
+
+
+def build_user_source(user):
+    #WIP
+    keys = list(user.keys())
+    user_fields = []
+    nested = ['employee_review', 'employee_next_of_kin']
+    for key in keys:
+        if key not in nested:
+            user_fields.append(key)
+
 
 
 
