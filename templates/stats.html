@@ -9,6 +9,7 @@
 
     body {
       margin: 0;
+      background-color: #EDEDED;
       font-family: Arial, Helvetica, sans-serif;
       text-align: center;
     }
@@ -86,10 +87,11 @@
 	/* Modal Content/Box */
 	.modal-content {
 		background-color: #fefefe;
-		margin: 15% auto; /* 15% from the top and centered */
-		padding: 20px;
+		margin: 3% auto; /* 15% from the top and centered */
+		padding: 10px;
 		border: 1px solid #888;
-		width: 80%; /* Could be more or less, depending on screen size */
+		width: 85%; /* Could be more or less, depending on screen size */
+		height: 83%;
 	}
 
 	/* The Close Button */
@@ -114,6 +116,20 @@
         padding-left: 20px;
         padding-right: 20px;
         zoom: 0.99;
+	}
+
+
+	::-webkit-scrollbar
+	{
+		width: 12px;
+		background-color: white;
+	}
+
+	::-webkit-scrollbar-thumb
+	{
+		border-radius: 10px;
+		-webkit-box-shadow: inset 0 0 6px rgba(0,0,0,.3);
+		background-color: #F16767;
 	}
 
     </style>
@@ -157,13 +173,24 @@
 <div class="section group">
 	<div class="col span_1_of_3">
         <h2>Employee Info</h2>
-
+		<div class="table_container">
+			<table id="user_table" class="table table-striped table-bordered" style="width:100%">
+    		</table>
+		</div>
 	</div>
 	<div class="col span_1_of_3">
         <h2>Next of Kin</h2>
+		<div class="table_container">
+			<table id="next_of_kin_table" class="table table-striped table-bordered" style="width:100%">
+    		</table>
+		</div>
 	</div>
 	<div class="col span_1_of_3">
-	<h2>Reviews</h2>
+		<h2>Reviews</h2>
+		<div class="table_container">
+			<table id="review_table" class="table table-striped table-bordered" style="width:100%">
+    		</table>
+		</div>
 	</div>
 </div>
 </div>
@@ -172,10 +199,23 @@
 <script>
 
 	//get data
+	//data for the graph
 	bar_data =JSON.parse({{bar_datasets |tojson}});
 	label_data = JSON.parse({{labels |tojson}});
-	column_names = JSON.parse({{column_names |tojson}});
-	column_values = JSON.parse({{column_values |tojson}});
+
+	//table at the bottom of the dash
+	basic_table_names = JSON.parse({{basic_table_names |tojson}});
+	basic_table_values = JSON.parse({{basic_table_values |tojson}});
+
+	//user data
+	user_fields = JSON.parse({{user_fields |tojson}});
+
+	//next of kin data
+	next_of_kin_fields = JSON.parse({{next_of_kin_fields |tojson}});
+
+	//user review
+	review_columns = JSON.parse({{review_columns |tojson}});
+	review_data = JSON.parse({{review_data |tojson}});
 
    // get bar chart canvas
    var ctx = document.getElementById("chart").getContext("2d");
@@ -216,6 +256,41 @@
 	// When the user clicks on the button, open the modal
 	btn.onclick = function() {
 		modal.style.display = "block";
+		if ( $.fn.dataTable.isDataTable( '#review_table' ) ) {
+		} else {
+
+			$('#user_table').DataTable({
+				data: user_fields,
+				columns: [{"title": "Field"}, {"title": "Value"}],
+				scrollY: "60vh",
+        		scrollCollapse: true,
+				searching: false,
+				paging: false,
+				info: false,
+				"aaSorting": []
+			});
+
+			$('#next_of_kin_table').DataTable({
+				data: next_of_kin_fields,
+				columns: [{"title": "Field"}, {"title": "Value"}],
+				scrollY: "60vh",
+        		scrollCollapse: true,
+				searching: false,
+				paging: false,
+				info: false,
+				"aaSorting": []
+			});
+
+			$('#review_table').DataTable({
+				scrollY: false,
+				scrollX: false,
+				data: review_data,
+				columns: review_columns,
+				searching: false,
+				paging: false,
+				info: false
+			});
+		}
 	}
 
 	// When the user clicks on <span> (x), close the modal
@@ -234,8 +309,8 @@
 	$(document).ready(function() {
     $('#employee_table').DataTable({
         scrollY: false,
-        data: column_values,
-        columns: column_names
+        data: basic_table_values,
+        columns: basic_table_names
     });
 	});
 

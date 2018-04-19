@@ -17,11 +17,21 @@ def home():
     if 'token' in session.keys():
         employees = get_employee(session['token'])
         labels, bar_datasets = build_position_chart_data(employees)
-        column_names, column_values = build_datatable_source(employees)
+        basic_table_names, basic_table_values = build_datatable_source(employees)
         birthdays = birthday_coming_up(employees, 30)
         employee_count = len(employees)  # temporary - need to make more robust
-        return render_template('stats.html', labels=labels,  bar_datasets=bar_datasets, birthdays=birthdays,
-                               employee_count=employee_count, column_names=column_names, column_values=column_values)
+        user_fields, review_columns, review_data, next_of_kin_fields = build_user_source(get_user_full(session['token']))
+        return render_template('stats.html',
+                               labels=labels,
+                               bar_datasets=bar_datasets,
+                               birthdays=birthdays,
+                               employee_count=employee_count,
+                               basic_table_names=basic_table_names,
+                               basic_table_values=basic_table_values,
+                               user_fields=user_fields,
+                               review_columns=review_columns,
+                               review_data=review_data,
+                               next_of_kin_fields=next_of_kin_fields)
     else:
         return redirect(url_for('login'))
 
@@ -168,6 +178,9 @@ def chart():
     values = list(data)
     birthdays = birthday_coming_up(employees, 30)
     employee_count = len(employees) # temporary - need to make more robust
+
+
+
     return render_template('stats.html', values=values, labels=labels, birthdays=birthdays, employee_count=employee_count)
 
 
@@ -207,15 +220,44 @@ def build_datatable_source(employees):
 
 
 def build_user_source(user):
-    #WIP
-    keys = list(user.keys())
-    user_fields = []
+    # todo: these types of variables need to all go into a central config file
+    user_display = ['user_first_name', 'user_last_name', 'position_name', 'position_level',
+                    'years_worked', 'user_username', 'leave_remaining', 'id_number',
+                    'phone_number', 'physical_address', 'tax_number', 'email', 'personal_email', 'github_user',
+                    'birth_date', 'start_date', 'end_date', 'is_foreigner', 'gender', 'race', 'next_review']
     nested = ['employee_review', 'employee_next_of_kin']
-    for key in keys:
+    user_fields = {}
+
+    # generate user data
+    for key in user.keys():
         if key not in nested:
-            user_fields.append(key)
+            if isinstance(user[key], dict):
+                for nested_key in user[key].keys():
+                    user_fields['{}_{}'.format(key, nested_key)] = user[key][nested_key]
+            else:
+                user_fields[key] = user[key]
+    user_fields = {k: user_fields[k] for k in user_display}
+    user_fields = sorted(user_fields.items(), key=lambda pair: user_display.index(pair[0]))
+    user_fields = [(column.capitalize().replace('_', ' '), value) for (column, value) in user_fields]
 
+    # generate review data
+    # todo: text replacement for codified fields
+    review_columns = []
+    for column in list(user['employee_review'][0].keys()):
+        review_columns.append({'title': column.capitalize().replace('_', ' ')})
 
+    review_data = []
+    for review in user['employee_review']:
+        review_data.append(list(review.values()))
+
+    # generate next of kin data
+    next_of_kin_fields = {}
+    for key in user['employee_next_of_kin'][0].keys():
+        next_of_kin_fields[key] = user['employee_next_of_kin'][0][key]
+    next_of_kin_fields = list(next_of_kin_fields.items())
+    next_of_kin_fields = [(column.capitalize().replace('_', ' '), value) for (column, value) in next_of_kin_fields]
+
+    return json.dumps(user_fields), json.dumps(review_columns), json.dumps(review_data), json.dumps(next_of_kin_fields)
 
 
 # start the server with the 'run()' method
