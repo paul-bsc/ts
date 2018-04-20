@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # import the Flask class from the flask module
-from flask import Flask, render_template, url_for, request, redirect, session, jsonify
+from flask import Flask, render_template, url_for, request, redirect, session
+import site_config as cfg
 import requests
 from pandas.io.json import json_normalize
 import pandas as pd
@@ -50,8 +51,6 @@ def login():
         password = request.form['password']
         (valid, response) = get_token(username, password)
         if valid is True:
-            session['username'] = username
-            session['password'] = password
             session['token'] = response
             print(session.keys())
             return redirect(url_for('home'))
@@ -60,6 +59,7 @@ def login():
     return render_template('login.html', error=error)
 
 
+# Route for handling the logout page logic
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
     """Log a user out of the microsite
@@ -72,19 +72,18 @@ def logout():
     return redirect(url_for('login'))
 
 
-def get_token(username, password):
+def get_token(username, password, url=cfg.token_url):
     """Get the sign-in token
 
     Args:
         username (string): Provided username.
         password (string): Provided password.
+        url (string)     : Login API
 
     Returns:
         bool: True if successful, otherwise false
         response (string): Returns the token or the returned error message
     """
-
-    url = "http://staging.tangent.tngnt.co/api-token-auth/"
 
     payload = "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; " \
               "name=\"username\"\r\n\r\n{}\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent" \
@@ -112,8 +111,16 @@ def get_token(username, password):
         return False, "Error. Please try again."
 
 
-def get_user(token):
-    url = "http://staging.tangent.tngnt.co/api/user/me/"
+def get_user(token, url=cfg.user_url):
+    """Get user info
+
+    Args:
+        token (string)   : User auth token.
+        url (string)     : User API.
+
+    Returns:
+        response (json)  : Return user info in json format
+    """
 
     headers = {
         'authorization': "Token {}".format(token),
@@ -125,8 +132,16 @@ def get_user(token):
     return response.json()[0]
 
 
-def get_user_full(token):
-    url = "http://staging.tangent.tngnt.co/api/employee/me/"
+def get_user_full(token, url=cfg.user_full_url):
+    """Get the full user profile
+
+    Args:
+        token (string): User auth token.
+        url (string)     : User Full Profile API.
+
+    Returns:
+        response (json)  : Return full user info in json format
+    """
 
     headers = {
         'authorization': "Token {}".format(token),
@@ -138,8 +153,25 @@ def get_user_full(token):
     return response.json()
 
 
-def get_employee(token, race=None, position=None, start_date=None, user=None, gender=None, birth_date=None, email=None):
-    url = "http://staging.tangent.tngnt.co/api/employee/"
+def get_employee(token, url=cfg.employee_url, race=None, position=None, start_date=None, user=None, gender=None,
+                 birth_date=None, email=None):
+    """Get an employee's profile
+
+    Args:
+        token (string)     : User auth token.
+        url (string)       : Employee Profile API.
+        race (string)      : Race search param
+        position (string)  : Position search param
+        start_date (string): Start date search param
+        user (string)      : User search param
+        gender (string)    : Gender search param
+        birth_date (string): Birth Date search param
+        email (string)     : Email search param
+
+
+    Returns:
+        response (json)    : Return queried user info in json format
+    """
 
     headers = {
         'authorization': "Token {}".format(token),
@@ -158,8 +190,17 @@ def get_employee(token, race=None, position=None, start_date=None, user=None, ge
     return response.json()
 
 
-# the data coming from the server is incorrect, will have to change this to do a proper date calcuation
+# todo: the data coming from the server is incorrect, will have to change this to do a proper date calculation
 def birthday_coming_up(employees, days):
+    """Calculate upcoming birthdays
+
+    Args:
+        employees (dictionary) : General employee profile info.
+        days (int)             : Search window of days into the future.
+
+    Returns:
+        birthdays (list): Return employee name, birthday and age
+    """
     birthdays = []
     for employee in employees:
         if employee['days_to_birthday'] < 30:
@@ -170,22 +211,17 @@ def birthday_coming_up(employees, days):
     return birthdays
 
 
-@app.route("/stats")
-def chart():
-    employees = get_employee(session['token'])
-    labels, data = build_position_chart_data(employees)
-    labels = list(data.keys())
-    values = list(data)
-    birthdays = birthday_coming_up(employees, 30)
-    employee_count = len(employees) # temporary - need to make more robust
+def build_position_chart_data(employees, colors=cfg.chart_colors):
+    """Builds stacked bar chart for employee positions in the company
 
+    Args:
+        employees (dictionary) : General employee profile info.
+        colors (list)          : Default colors for the style.
 
-
-    return render_template('stats.html', values=values, labels=labels, birthdays=birthdays, employee_count=employee_count)
-
-
-def build_position_chart_data(employees):
-    colors = ['#29746F', '#F16767']
+    Returns:
+        labels (list)          : Return plot labels - job positions
+        datasets (list)        : Return datasets - job level data
+    """
     level_subsets = {}
     employee_df = json_normalize(employees)
     labels = list(employee_df['position.name'].unique())
@@ -201,13 +237,20 @@ def build_position_chart_data(employees):
                          'backgroundColor': colors[list(levels).index(level)]
                          })
     # temp response - need to come clean this up and make it more robust
-    # return str(datasets).replace("'data'", 'data').replace("'label'", 'label')
     return json.dumps(labels), json.dumps(datasets)
 
 
-def build_datatable_source(employees):
-    table_variables = ['user.first_name', 'user.last_name', 'position.name',
-                       'gender', 'birth_date', 'email', 'phone_number', 'years_worked']
+def build_datatable_source(employees, table_variables=cfg.dashboard_users_fields):
+    """Builds source data for the dashboard data table
+
+    Args:
+        employees (dictionary) : General employee profile info.
+        table_variables (list) : Fields we want in the output table.
+
+    Returns:
+        column_names (list)    : Field names
+        column_values (list)   : Field values
+    """
     column_names = []
     column_values = []
     for column in table_variables:
@@ -219,13 +262,25 @@ def build_datatable_source(employees):
     return json.dumps(column_names), json.dumps(column_values)
 
 
-def build_user_source(user):
-    # todo: these types of variables need to all go into a central config file
-    user_display = ['user_first_name', 'user_last_name', 'position_name', 'position_level',
-                    'years_worked', 'user_username', 'leave_remaining', 'id_number',
-                    'phone_number', 'physical_address', 'tax_number', 'email', 'personal_email', 'github_user',
-                    'birth_date', 'start_date', 'end_date', 'is_foreigner', 'gender', 'race', 'next_review']
-    nested = ['employee_review', 'employee_next_of_kin']
+# todo: leverage this in the search tool to help prep data
+def build_user_source(user, user_display=cfg.detailed_user_fields, nested=cfg.detailed_user_nested_categories,
+                      review_key=cfg.detailed_user_review_key, next_of_kin_key=cfg.detailed_user_next_of_kin_key):
+    """Builds user modal data
+
+    Args:
+        user (dictionary)       : User dictionary.
+        user_display (list)     : Fields we want in the USER output table.
+        nested (list)           : List of nested categories we are interested in
+        review_key (string)     : Dictionary key for review fields
+        next_of_kin_key (string): Dictionary key for next of kin fields
+
+    Returns:
+        user_fields (list)       : User data
+        review_columns (list)    : Review columns
+        review_data (list)       : Review data
+        next_of_kin_fields (list): Next of kin data
+    """
+
     user_fields = {}
 
     # generate user data
@@ -243,17 +298,17 @@ def build_user_source(user):
     # generate review data
     # todo: text replacement for codified fields
     review_columns = []
-    for column in list(user['employee_review'][0].keys()):
+    for column in list(user[review_key][0].keys()):
         review_columns.append({'title': column.capitalize().replace('_', ' ')})
 
     review_data = []
-    for review in user['employee_review']:
+    for review in user[review_key]:
         review_data.append(list(review.values()))
 
     # generate next of kin data
     next_of_kin_fields = {}
-    for key in user['employee_next_of_kin'][0].keys():
-        next_of_kin_fields[key] = user['employee_next_of_kin'][0][key]
+    for key in user[next_of_kin_key][0].keys():
+        next_of_kin_fields[key] = user[next_of_kin_key][0][key]
     next_of_kin_fields = list(next_of_kin_fields.items())
     next_of_kin_fields = [(column.capitalize().replace('_', ' '), value) for (column, value) in next_of_kin_fields]
 
