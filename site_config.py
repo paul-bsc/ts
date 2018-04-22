@@ -2,6 +2,8 @@
 # todo: add gender chart under employee count
 # todo: render birthday list properly & actually calculate the days until the birthday
 # todo: implement employee search functionality
+# todo: add map to user modal
+# todo: clean up site style/colors where necessary
 
 # app urls
 token_url = r"http://staging.tangent.tngnt.co/api-token-auth/"

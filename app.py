@@ -6,6 +6,7 @@ import requests
 from pandas.io.json import json_normalize
 import pandas as pd
 import json
+from datetime import datetime
 
 # create the application object
 app = Flask(__name__)
@@ -17,15 +18,19 @@ def home():
     error = None
     if 'token' in session.keys():
         employees = get_employee(session['token'])
-        labels, bar_datasets = build_position_chart_data(employees)
+        bar_labels, bar_datasets = build_position_chart_data(employees)
+        gender_labels, gender_data = build_gender_chart_data(employees)
         basic_table_names, basic_table_values = build_datatable_source(employees)
-        birthdays = birthday_coming_up(employees, 30)
+        birthday_labels, birthday_values = birthday_coming_up(employees, 5)
         employee_count = len(employees)  # temporary - need to make more robust
         user_fields, review_columns, review_data, next_of_kin_fields = build_user_source(get_user_full(session['token']))
         return render_template('stats.html',
-                               labels=labels,
+                               bar_labels=bar_labels,
                                bar_datasets=bar_datasets,
-                               birthdays=birthdays,
+                               gender_labels=gender_labels,
+                               gender_data=gender_data,
+                               birthday_labels=birthday_labels,
+                               birthday_values=birthday_values,
                                employee_count=employee_count,
                                basic_table_names=basic_table_names,
                                basic_table_values=basic_table_values,
@@ -191,7 +196,7 @@ def get_employee(token, url=cfg.employee_url, race=None, position=None, start_da
 
 
 # todo: the data coming from the server is incorrect, will have to change this to do a proper date calculation
-def birthday_coming_up(employees, days):
+def birthday_coming_up(employees, list_length):
     """Calculate upcoming birthdays
 
     Args:
@@ -201,14 +206,22 @@ def birthday_coming_up(employees, days):
     Returns:
         birthdays (list): Return employee name, birthday and age
     """
-    birthdays = []
-    for employee in employees:
-        if employee['days_to_birthday'] < 30:
-            birthdays.append([
-                "{} {}".format(employee['user']['first_name'], employee['user']['last_name']),
-                employee['birth_date'],
-                employee['age']])
-    return birthdays
+    employee_df = json_normalize(employees)
+    employee_df['birth_date'] = pd.to_datetime(employee_df['birth_date'])
+
+    employee_df['birth_day'] = employee_df['birth_date'].apply(lambda dt: dt.replace(year=datetime.now().year))
+
+    # update the year for birthdays that have passed
+    employee_df.loc[(pd.to_datetime('today') - employee_df['birth_day']) > '0 days', 'birth_day'] = employee_df[
+        (pd.to_datetime('today') - employee_df['birth_day']) > '0 days']['birth_day'].apply(
+        lambda dt: dt.replace(year=datetime.now().year + 1))
+
+    employee_df = employee_df.sort_values('birth_day')
+    employee_df['days_to_birthday'] = (employee_df['birth_day'] - pd.to_datetime('today')).dt.days
+    birthdays = employee_df[['user.first_name', 'user.last_name', 'days_to_birthday']].values.tolist()
+    labels = [{'title': name.replace('user', '').replace('.', '').replace('_', ' ').capitalize()}
+              for name in list(employee_df[['user.first_name', 'user.last_name', 'days_to_birthday']].columns)]
+    return json.dumps(labels), json.dumps(birthdays[:list_length])
 
 
 def build_position_chart_data(employees, colors=cfg.chart_colors):
@@ -240,6 +253,26 @@ def build_position_chart_data(employees, colors=cfg.chart_colors):
     return json.dumps(labels), json.dumps(datasets)
 
 
+def build_gender_chart_data(employees, colors=cfg.chart_colors):
+    """Builds pie chart for employee gender in the company
+
+    Args:
+        employees (dictionary) : General employee profile info.
+        colors (list)          : Default colors for the style.
+
+    Returns:
+        labels (list)          : Return plot labels - gender
+        datasets (list)        : Return datasets - counts
+    """
+    employee_df = json_normalize(employees)
+    counts = employee_df.groupby('gender')['gender'].count()
+    labels = list(counts.keys())
+    # this needs to look like
+    # data: [list of numbers], background color: lost of colors, label: one label
+    datasets = [{'label': list(counts.index), 'data': list(counts.astype(float)), 'backgroundColor': cfg.chart_colors}]
+    return json.dumps(labels), json.dumps(datasets)
+
+
 def build_datatable_source(employees, table_variables=cfg.dashboard_users_fields):
     """Builds source data for the dashboard data table
 
@@ -252,7 +285,6 @@ def build_datatable_source(employees, table_variables=cfg.dashboard_users_fields
         column_values (list)   : Field values
     """
     column_names = []
-    column_values = []
     for column in table_variables:
         if "." in column:
             column = column.split('.')[1]
